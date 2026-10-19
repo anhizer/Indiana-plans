@@ -1,0 +1,79 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+
+path = "/mnt/data/individual_market_medical.xlsx"
+raw = pd.read_excel(
+    path,
+    sheet_name="Individual_Market_Medical",
+    header=None
+)
+
+headers = raw.iloc[1].tolist()
+df = raw.iloc[2:].copy()
+df.columns = headers
+
+# Keep Indiana plans only
+in_df = df[
+    df["State Code"].astype(str).str.strip().eq("IN")
+].copy()
+
+plans_left = len(in_df)
+
+# Choose premium and deductible columns
+premium_col = "Premium Adult Individual Age 40 "
+deductible_col = "Medical Deductible - Individual - Standard"
+
+# Convert dollar values to numeric values
+def parse_money(value):
+    if pd.isna(value):
+        return np.nan
+
+    s = str(value).strip().replace("$", "").replace(",", "")
+
+    try:
+        return float(s)
+    except ValueError:
+        return np.nan
+
+in_df["premium_numeric"] = in_df[premium_col].map(parse_money)
+in_df["deductible_numeric"] = in_df[deductible_col].map(parse_money)
+
+# Keep rows with valid values for both variables
+plot_df = in_df.dropna(
+    subset=["premium_numeric", "deductible_numeric"]
+)
+
+# Create scatter plot
+plt.figure(figsize=(10, 6.5))
+
+plt.scatter(
+    plot_df["premium_numeric"],
+    plot_df["deductible_numeric"],
+    alpha=0.45
+)
+
+plt.xlabel("Monthly Premium for Individual Age 40 ($)")
+plt.ylabel("Individual Medical Deductible — Standard Plan ($)")
+plt.title("Indiana Marketplace Health Plans: Premium vs. Deductible")
+
+plt.grid(True, alpha=0.25)
+plt.tight_layout()
+
+# Save as PNG
+output_path = "/mnt/data/indiana_premium_vs_deductible.png"
+
+plt.savefig(
+    output_path,
+    dpi=200,
+    bbox_inches="tight"
+)
+
+plt.close()
+
+# Print results
+print(f"Indiana plans remaining after filtering: {plans_left:,}")
+print(f"Plans plotted with numeric premium and deductible: {len(plot_df):,}")
+print(f"Premium column chosen: {premium_col.strip()}")
+print(f"Deductible column chosen: {deductible_col}")
+print(f"PNG saved to: {output_path}")
